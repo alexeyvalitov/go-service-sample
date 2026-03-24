@@ -1,0 +1,19 @@
+.git
+.gitignore
+
+# Editor/IDE
+.idea
+.vscode
+
+# Local artifacts
+cover.out
+cover.html
+*.out
+*.html
+
+# Docs / notes (not needed for building the binary)
+*.md
+lectures/
+code_snapshots/
+
+

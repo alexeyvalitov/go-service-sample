@@ -1,0 +1,108 @@
+services:
+  # Local development stack.
+  # The production image is distroless, so platform probes should be used in real deployments.
+  app:
+    build:
+      context: .
+      target: runtime-dev
+    image: go-service-sample:dev
+    container_name: go-service-sample-app
+    init: true
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    environment:
+      HTTP_PORT: ${HTTP_PORT:-8081}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      WORKER_ENABLED: ${WORKER_ENABLED:-true}
+      WORKER_INTERVAL: ${WORKER_INTERVAL:-1s}
+      DRAIN_WINDOW: ${DRAIN_WINDOW:-0s}
+      SHUTDOWN_TIMEOUT: ${SHUTDOWN_TIMEOUT:-5s}
+      READY_TIMEOUT: ${READY_TIMEOUT:-1s}
+      # Optional external dependency checked by /readyz:
+      # EXTERNAL_BASE_URL: "http://example:8082"
+      # EXTERNAL_TIMEOUT: "250ms"
+      # EXTERNAL_SOFT: "false"
+    stop_grace_period: 15s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-T", "1", "-O", "-", "http://127.0.0.1:8081/healthz"]
+      interval: 5s
+      timeout: 2s
+      retries: 10
+      start_period: 2s
+
+  # Optional synthetic external dependency (same binary, different port).
+  extdep:
+    profiles: ["with-external"]
+    build:
+      context: .
+      target: runtime-dev
+    image: go-service-sample:dev
+    container_name: go-service-sample-extdep
+    init: true
+    restart: unless-stopped
+    environment:
+      HTTP_PORT: ${EXTDEP_HTTP_PORT:-8082}
+      LOG_LEVEL: ${EXTDEP_LOG_LEVEL:-info}
+    expose:
+      - "8082"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-T", "1", "-O", "-", "http://127.0.0.1:8082/healthz"]
+      interval: 5s
+      timeout: 2s
+      retries: 10
+      start_period: 2s
+
+  # Optional app wired to extdep for readiness demonstrations.
+  app_with_external:
+    profiles: ["with-external"]
+    build:
+      context: .
+      target: runtime-dev
+    image: go-service-sample:dev
+    container_name: go-service-sample-app-with-external
+    init: true
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    environment:
+      HTTP_PORT: ${HTTP_PORT:-8081}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+
+      WORKER_ENABLED: ${WORKER_ENABLED:-true}
+      WORKER_INTERVAL: ${WORKER_INTERVAL:-1s}
+
+      DRAIN_WINDOW: ${DRAIN_WINDOW:-0s}
+      SHUTDOWN_TIMEOUT: ${SHUTDOWN_TIMEOUT:-5s}
+      READY_TIMEOUT: ${READY_TIMEOUT:-1s}
+
+      EXTERNAL_BASE_URL: "http://extdep:8082"
+      EXTERNAL_TIMEOUT: "250ms"
+      EXTERNAL_SOFT: "false"
+    stop_grace_period: 15s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    depends_on:
+      extdep:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-T", "1", "-O", "-", "http://127.0.0.1:8081/healthz"]
+      interval: 5s
+      timeout: 2s
+      retries: 10
+      start_period: 2s
+
+
